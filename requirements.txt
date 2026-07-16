@@ -1,0 +1,15 @@
+fastapi
+langchain
+langgraph
+streamlit
+langchain-community
+langchain-groq
+langchain-text-splitters
+langchain-core
+chromadb
+sentence-transformers
+langchain-huggingface
+pypdf
+pymupdf
+uvicorn
+psycopg2
