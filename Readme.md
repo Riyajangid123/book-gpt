@@ -2,14 +2,6 @@
 
 > Upload a book (PDF/ZIP). Ask it questions, generate MCQs, or get exam-ready notes — powered by a LangGraph-orchestrated multi-agent RAG pipeline.
 
-[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-Frontend-FF4B4B.svg)](https://streamlit.io/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Orchestration-1C3C3C.svg)](https://www.langchain.com/langgraph)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20Store-purple.svg)](https://www.trychroma.com/)
-[![Groq](https://img.shields.io/badge/Groq-Llama%203.3%2070B-F55036.svg)](https://groq.com/)
-[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg)](https://www.docker.com/)
-
 ## Overview
 
 I built BookGPT to turn any book into an interactive study assistant. Instead of throwing everything at one giant prompt, the system is modeled as a **LangGraph state machine** — a query flows through a pipeline of specialized nodes (query rewriting, semantic retrieval, and task-specific generation) with an explicit router deciding which path to take based on what the user actually asked for.
