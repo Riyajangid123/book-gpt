@@ -7,8 +7,16 @@ from database.query import save_message,get_messages,get_user_by_email,create_us
 import os
 
 app=FastAPI()
+
+graph = None
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.on_event("startup")
+def startup():
+    global graph
+    graph = build_graph()
+    print("✅ LangGraph initialized successfully")
 
 class QueryRequest(BaseModel):
     query: str
@@ -33,9 +41,10 @@ def build_vectorstore_task(file_path: str):
 
 @app.post("/upload")
 async def Upload_book(
-    file: UploadFile = File(...),
-    background_tasks: BackgroundTasks= None
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
 ):
+    
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
     content = await file.read()
@@ -48,7 +57,7 @@ async def Upload_book(
 
 @app.post("/ask")
 def ask_question(request: QueryRequest):
-    graph = build_graph()
+    global graph
 
     result = graph.invoke({
         "user_query": request.query

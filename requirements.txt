@@ -13,3 +13,4 @@ pypdf
 pymupdf
 uvicorn
 psycopg2
+python-multipart
