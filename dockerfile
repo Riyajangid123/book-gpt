@@ -1,33 +1,34 @@
 FROM python:3.11-slim
 
-# Create a secure, non-root user (Hugging Face standard)
+# Create non-root user
 RUN useradd -m -u 1000 user
+
 WORKDIR /home/user/app
 
-# Install system dependencies (needed for certain PDF parsers or vector DBs)
+# Install system packages
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY --chown=user requirements.txt .
+# Install Python packages
+COPY requirements.txt .
+
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy all code to the container
-COPY --chown=user . .
+# Copy project
+COPY . .
 
-# Set running environment
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
-
-# Grant execution rights to startup script
+# Make startup script executable
 RUN chmod +x start.sh
 
-# Expose port 7860 (This is the only port Hugging Face forwards externally)
+# Switch to non-root user
+USER user
+
+ENV HOME=/home/user
+ENV PATH=/home/user/.local/bin:$PATH
+
 EXPOSE 7860
 
-# Run both the API and Streamlit on startup
 CMD ["./start.sh"]

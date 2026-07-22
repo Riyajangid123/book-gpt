@@ -7,28 +7,14 @@ import time
 import socket
 
 # Function to check if the backend is already running
-def is_port_in_use(port):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('127.0.0.1', port)) == 0
+import os
 
-# Start the FastAPI backend automatically in the background
-@st.cache_resource
-def start_backend():
-    port = 8000
-    if not is_port_in_use(port):
-        # Starts uvicorn silently in the background
-        subprocess.Popen([
-            "uvicorn", "backend.main:app", 
-            "--host", "127.0.0.1", 
-            "--port", str(port)
-        ])
-        time.sleep(3) # Give the backend 3 seconds to boot up
-    return f"http://127.0.0.1:{port}"
+BACKEND_API_URL = os.getenv(
+    "BACKEND_API_URL",
+    "http://127.0.0.1:8000"   # Used only for local development
+)
 
-# Initialize backend and get the URL
-BACKEND_API_URL = start_backend()
-
-st.title("BookGPT")
+st.title("📚 BookGPT")
 
 
 if "page" not in st.session_state:
@@ -53,7 +39,7 @@ if st.session_state.page == "auth":
         password = st.text_input("Login Password", type="password")
 
         if st.button("Login"):
-            response = requests.post("http://127.0.0.1:8000/login", json={
+            response = requests.post(f"{BACKEND_API_URL}/login", json={
                 "email": email,
                 "password": password
             })
@@ -63,7 +49,7 @@ if st.session_state.page == "auth":
             if "user_id" in data:
                 st.session_state.user_id = data["user_id"]
 
-                res = requests.post("http://127.0.0.1:8000/create-session", json={
+                res = requests.post(f"{BACKEND_API_URL}/create-session", json={
                     "user_id": st.session_state.user_id,
                     "title": "New Chat"
                 })
@@ -82,7 +68,7 @@ if st.session_state.page == "auth":
         password_r = st.text_input("Password", type="password")
 
         if st.button("Register"):
-            response = requests.post("http://127.0.0.1:8000/register", json={
+            response = requests.post(f"{BACKEND_API_URL}/register", json={
                 "email": email_r,
                 "username": username_r,
                 "password": password_r
@@ -118,7 +104,7 @@ elif st.session_state.page == "chat":
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue())}
 
                     response = requests.post(
-                        "http://127.0.0.1:8000/upload",
+                        f"{BACKEND_API_URL}/upload",
                         files=files
                     )
 
@@ -135,7 +121,7 @@ elif st.session_state.page == "chat":
     if st.sidebar.button("➕ New Chat"):
         st.session_state.messages = []
 
-        res = requests.post("http://127.0.0.1:8000/create-session", json={
+        res = requests.post(f"{BACKEND_API_URL}/create-session", json={
             "user_id": st.session_state.user_id,
             "title": "New Chat"
         })
@@ -158,7 +144,7 @@ elif st.session_state.page == "chat":
 
         with st.spinner("Thinking... 📚"):
             response = requests.post(
-                "http://127.0.0.1:8000/ask",
+                f"{BACKEND_API_URL}/ask",
                 json={
                     "query": prompt,
                     "user_id": st.session_state.user_id,
