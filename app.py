@@ -2,11 +2,6 @@ import streamlit as st
 import requests
 
 import streamlit as st
-import subprocess
-import time
-import socket
-
-# Function to check if the backend is already running
 import os
 
 BACKEND_API_URL = os.getenv(
