@@ -1,15 +1,24 @@
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+import os
 
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_postgres import PGVector
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class VectorStore:
     def __init__(self):
-        self.embeddings = HuggingFaceEmbeddings(
+        self.embeddings = HuggingFaceInferenceAPIEmbeddings(
+            api_key=os.environ["HF_API_TOKEN"],
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
+        self.connection_string = os.environ["SUPABASE_DB_URL"] 
 
     def load_vector_store(self):
-        return Chroma(
-            persist_directory="./chromadb",
-            embedding_function=self.embeddings
+        return PGVector(
+            embeddings=self.embeddings,
+            collection_name="book_chunks",
+            connection=self.connection_string,
         )

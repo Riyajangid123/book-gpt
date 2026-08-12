@@ -7,10 +7,9 @@ langchain-groq
 langchain-text-splitters
 langchain-core
 chromadb
-sentence-transformers
 langchain-huggingface
 pypdf
 pymupdf
 uvicorn
 psycopg2
-python-multipart
+langchain-postgres
