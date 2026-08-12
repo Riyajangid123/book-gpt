@@ -53,7 +53,6 @@ chromadb/
 
 # Generated folders
 uploads/
-database/
 extracted_book/
 
 # Large datasets
