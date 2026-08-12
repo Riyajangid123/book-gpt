@@ -11,10 +11,10 @@ load_dotenv()
 class VectorStore:
     def __init__(self):
         self.embeddings = HuggingFaceInferenceAPIEmbeddings(
-            api_key=os.environ["HF_API_TOKEN"],
+            api_key=os.environ["HUGGINGFACEHUB_API_TOKEN"],
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
-        self.connection_string = os.environ["SUPABASE_DB_URL"] 
+        self.connection_string = os.environ["DATABASE_URL"] 
 
     def load_vector_store(self):
         return PGVector(
