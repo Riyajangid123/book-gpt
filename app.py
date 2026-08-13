@@ -6,7 +6,7 @@ import os
 
 BACKEND_API_URL = os.getenv(
     "BACKEND_API_URL",
-    "http://127.0.0.1:8000"   # Used only for local development
+    "http://127.0.0.1:8000"   
 )
 
 st.title("📚 BookGPT")
