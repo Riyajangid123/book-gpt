@@ -32,6 +32,6 @@ class VectorStoreLoader:
         store = PGVector(
             collection_name=self.collection_name,
             connection=self.connection_string,
-            embedding_function=self.embeddings,
+            embeddings=self.embeddings,
         )
         return store
