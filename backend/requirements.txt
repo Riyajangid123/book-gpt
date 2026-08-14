@@ -18,3 +18,4 @@ pymupdf
 
 # Environment Variables
 python-dotenv
+sqlalchemy
