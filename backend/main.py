@@ -39,6 +39,11 @@ class CreateSessionRequest(BaseModel):
 def build_vectorstore_task(file_path: str):
     BuildVectorStore(zip_path=file_path).build()
 
+
+@app.get("/home")
+def home():
+    return {"message": "Welcome to the SynapTome"}
+
 @app.post("/upload")
 async def Upload_book(
     background_tasks: BackgroundTasks,
