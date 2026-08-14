@@ -8,7 +8,7 @@ import logging
 from .loader import Document_Loader  
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_postgres import PGVector
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
@@ -40,9 +40,9 @@ class BuildVectorStore:
             raise ValueError("Database URL and Hugging Face API token must be set.")
 
         # --- Initialize Embeddings (API-based) ---
-        self.embeddings = HuggingFaceInferenceAPIEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            api_key=huggingface_api_token
+        self.embeddings = HuggingFaceEndpointEmbeddings(
+            model="sentence-transformers/all-MiniLM-L6-v2",
+            huggingfacehub_api_token=huggingface_api_token
         )
         logger.info("HuggingFace embeddings interface initialized successfully.")
 

@@ -1,6 +1,6 @@
 import os
 from langchain_postgres import PGVector
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
 class VectorStoreLoader:
     """
@@ -20,9 +20,9 @@ class VectorStoreLoader:
         if not self.connection_string or not huggingface_api_token:
             raise ValueError("Database URL and Hugging Face API token must be set.")
 
-        self.embeddings = HuggingFaceInferenceAPIEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            api_key=huggingface_api_token
+        self.embeddings = HuggingFaceEndpointEmbeddings(
+            model="sentence-transformers/all-MiniLM-L6-v2",
+            huggingfacehub_api_token=huggingface_api_token
         )
 
     def load(self) -> PGVector:
