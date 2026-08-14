@@ -1,11 +1,11 @@
-from book_rag.vector_store import VectorStore
+from book_rag.vector_store_loader import VectorStoreLoader
 from graph.state import BookState
 
 
 class Retriever:
     def __init__(self):
-        self.vector_store = VectorStore()
-        self.db = self.vector_store.load_vector_store()
+        self.vector_store = VectorStoreLoader(collection_name="your_collection_name")
+        self.db = self.vector_store.load()
 
     def retriever(self, state: BookState):
 

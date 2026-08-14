@@ -2,7 +2,7 @@ from fastapi import FastAPI,UploadFile,File
 from fastapi import BackgroundTasks
 from pydantic import BaseModel
 from graph.workflow import build_graph
-from build_vectorstore import BuildVectorStore
+from book_rag.vector_store import BuildVectorStore
 from database.query import save_message,get_messages,get_user_by_email,create_user,create_session
 import os
 
