@@ -1,6 +1,7 @@
 import os
 import logging
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+# IMPORTANT: Import the correct class
+from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
 from langchain_postgres import PGVector
 from dotenv import load_dotenv
 
@@ -24,12 +25,13 @@ class VectorStore:
             logger.error("DATABASE_URL environment variable not found!")
             raise ValueError("DATABASE_URL environment variable not set.")
 
-        logger.info("Environment variables loaded. Initializing embeddings.")
+        logger.info("Environment variables loaded. Initializing embeddings via Inference API.")
         
         try:
-            self.embeddings = HuggingFaceEndpointEmbeddings(
-                model="sentence-transformers/all-MiniLM-L6-v2",
-                api_key=huggingface_api_token 
+            # Use the correct class for the serverless Inference API
+            self.embeddings = HuggingFaceInferenceAPIEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                api_key=huggingface_api_token
             )
             logger.info("HuggingFace embeddings initialized successfully.")
         except Exception as e:
@@ -38,10 +40,8 @@ class VectorStore:
 
     def load_vector_store(self):
         logger.info("Loading vector store from PostgreSQL...")
-
         return PGVector(
             embeddings=self.embeddings,
             collection_name="book_chunks",
             connection=self.connection_string,
         )
-

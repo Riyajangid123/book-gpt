@@ -1,15 +1,14 @@
-import streamlit as st
-import requests
-
-import streamlit as st
 import os
+import requests
+import streamlit as st
 
 BACKEND_API_URL = os.getenv(
     "BACKEND_API_URL",
     "http://127.0.0.1:8000"   
 )
 
-st.title("📚 BookGPT")
+st.set_page_config(page_title="SynapTome", page_icon="🧠", layout="centered")
+st.title("🧠 SynapTome")
 
 
 if "page" not in st.session_state:
@@ -24,137 +23,148 @@ if "user_id" not in st.session_state:
 if "session_id" not in st.session_state:
     st.session_state.session_id = None
 
+# --- AUTHENTICATION PAGE ---
 if st.session_state.page == "auth":
-
-
     tab1, tab2 = st.tabs(["Login", "Register"])
 
     with tab1:
-        email = st.text_input("Login Email")
-        password = st.text_input("Login Password", type="password")
+        email = st.text_input("Login Email", key="login_email")
+        password = st.text_input("Login Password", type="password", key="login_pass")
 
-        if st.button("Login"):
-            response = requests.post(f"{BACKEND_API_URL}/login", json={
-                "email": email,
-                "password": password
-            })
+        if st.button("Login", use_container_width=True):
+            try:
+                response = requests.post(
+                    f"{BACKEND_API_URL}/login", 
+                    json={"email": email, "password": password},
+                    timeout=15
+                )
 
-            data = response.json()
+                if response.status_code == 200:
+                    data = response.json()
+                    if "user_id" in data:
+                        st.session_state.user_id = data["user_id"]
 
-            if "user_id" in data:
-                st.session_state.user_id = data["user_id"]
-
-                res = requests.post(f"{BACKEND_API_URL}/create-session", json={
-                    "user_id": st.session_state.user_id,
-                    "title": "New Chat"
-                })
-
-                st.session_state.session_id = res.json()["session_id"]
-
-                st.session_state.page = "chat"
-
-                st.success("Logged in!")
-                st.rerun()
-                
+                        res = requests.post(
+                            f"{BACKEND_API_URL}/create-session", 
+                            json={"user_id": st.session_state.user_id, "title": "New Chat"},
+                            timeout=10
+                        )
+                        st.session_state.session_id = res.json()["session_id"]
+                        st.session_state.page = "chat"
+                        st.success("Successfully logged in!")
+                        st.rerun()
+                else:
+                    st.error("Invalid credentials. Please try again.")
+            except requests.exceptions.ConnectionError:
+                st.error("⚠️ Unable to connect to the backend server. It might be waking up from sleep mode on Render. Please wait 30 seconds and try again.")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {e}")
 
     with tab2:
-        email_r = st.text_input("Register Email")
-        username_r = st.text_input("Username")
-        password_r = st.text_input("Password", type="password")
+        email_r = st.text_input("Register Email", key="reg_email")
+        username_r = st.text_input("Username", key="reg_user")
+        password_r = st.text_input("Password", type="password", key="reg_pass")
 
-        if st.button("Register"):
-            response = requests.post(f"{BACKEND_API_URL}/register", json={
-                "email": email_r,
-                "username": username_r,
-                "password": password_r
-            })
+        if st.button("Register", use_container_width=True):
+            try:
+                response = requests.post(
+                    f"{BACKEND_API_URL}/register", 
+                    json={"email": email_r, "username": username_r, "password": password_r},
+                    timeout=15
+                )
+                if response.status_code == 200 or response.status_code == 201:
+                    st.success("Registered successfully! You can now switch to the Login tab.")
+                else:
+                    st.error("Registration failed. Email might already be taken.")
+            except requests.exceptions.ConnectionError:
+                st.error("⚠️ Backend server is currently starting up on Render. Please wait a moment.")
 
-            st.success("Registered successfully!")
-
+# --- CHAT INTERFACE PAGE ---
 elif st.session_state.page == "chat":
-
     st.sidebar.title("💬 Chats")
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("Logout", use_container_width=True):
         st.session_state.page = "auth"
         st.session_state.user_id = None
         st.session_state.session_id = None
         st.session_state.messages = []
         st.rerun()
 
-
     uploaded_file = st.sidebar.file_uploader(
-        "📂 Upload Book (PDF / Text)",
-        type=["pdf","zip"]
+        "📂 Upload Book (PDF)",
+        type=["pdf","zip"]  
     )
 
-    st.sidebar.info("📌 Upload book to enable MCQ + exam mode questions")
+    st.sidebar.info("📌 Upload a book to build your vector database for asking questions.")
 
-    try:
-
-        if uploaded_file is not None:
-            if st.sidebar.button("Upload & Process"):
-                with st.spinner("Uploading and processing book..."):
-
+    if uploaded_file is not None:
+        if st.sidebar.button("Upload & Process", use_container_width=True):
+            with st.spinner("Processing document... (May take a minute for large books)"):
+                try:
                     files = {"file": (uploaded_file.name, uploaded_file.getvalue())}
-
                     response = requests.post(
                         f"{BACKEND_API_URL}/upload",
-                        files=files
+                        files=files,
+                        timeout=180 
                     )
 
                     if response.status_code == 200:
-                        st.sidebar.success("Book uploaded! Vector DB is being created.")
+                        st.sidebar.success("🎉 Book vectorized and database created successfully!")
                     else:
-                        st.sidebar.error("Upload failed.")
+                        st.sidebar.error(f"Upload failed: {response.text}")
+                except requests.exceptions.Timeout:
+                    st.sidebar.error("⌛ The request timed out. The book might be too large for free tier resources.")
+                except Exception as e:
+                    st.sidebar.error(f"Error connecting to backend: {e}")
 
-    except Exception as e:
-        st.error("Please upload a book first")
+    if st.sidebar.button("➕ New Chat", use_container_width=True):
+        try:
+            st.session_state.messages = []
+            res = requests.post(
+                f"{BACKEND_API_URL}/create-session", 
+                json={"user_id": st.session_state.user_id, "title": "New Chat"},
+                timeout=10
+            )
+            st.session_state.session_id = res.json()["session_id"]
+            st.rerun()
+        except Exception as e:
+            st.error("Failed to start a new chat session.")
 
-                
-
-    if st.sidebar.button("➕ New Chat"):
-        st.session_state.messages = []
-
-        res = requests.post(f"{BACKEND_API_URL}/create-session", json={
-            "user_id": st.session_state.user_id,
-            "title": "New Chat"
-        })
-
-        st.session_state.session_id = res.json()["session_id"]
-        st.rerun()
-
-
+    # Render previous messages in the chat
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-                
-    prompt = st.chat_input("Ask a question...")
-    
+
+    # Input for new prompt
+    prompt = st.chat_input("Ask a question about your uploaded book...")
+
     if prompt and st.session_state.session_id:
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt
-        })
+        # Display user message instantly
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
-        with st.spinner("Thinking... 📚"):
-            response = requests.post(
-                f"{BACKEND_API_URL}/ask",
-                json={
-                    "query": prompt,
-                    "user_id": st.session_state.user_id,
-                    "session_id": st.session_state.session_id
-                }
-            )
-
-        data = response.json()
-
-        answer = data.get("response", "No response from server")
-
-
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": answer
-        })
-
-        st.rerun()
+        # Fetch assistant response
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            with st.spinner("Analyzing text... 📚"):
+                try:
+                    response = requests.post(
+                        f"{BACKEND_API_URL}/ask",
+                        json={
+                            "query": prompt,
+                            "user_id": st.session_state.user_id,
+                            "session_id": st.session_state.session_id
+                        },
+                        timeout=60 
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        answer = data.get("response", "No response from server")
+                    else:
+                        answer = "⚠️ The backend encountered an error answering this query."
+                except Exception as e:
+                    answer = f"⚠️ Connection Error: Failed to reach the backend. ({e})"
+            
+            message_placeholder.markdown(answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer})

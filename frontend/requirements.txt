@@ -1,0 +1,8 @@
+# Frontend Framework
+streamlit
+
+# To make HTTP requests to the backend API
+requests
+
+# Environment Variables
+python-dotenv

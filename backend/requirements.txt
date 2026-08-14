@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+
+
+langchain
+langgraph
+langchain-core
+langchain-text-splitters
+langchain-huggingface  # For HuggingFace embeddings
+langchain-postgres     # For PGVector
+langchain-groq         # For Groq LLM
+
+# Database Driver (Reliable Version)
+psycopg2-binary
+
+# PDF Processing
+pymupdf
+
+# Environment Variables
+python-dotenv
