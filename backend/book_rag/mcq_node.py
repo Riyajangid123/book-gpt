@@ -62,6 +62,7 @@ class MCQNode:
 
     def run(self, state: BookState):
         response = self.chain.invoke({
+            "user_query": state["user_query"],
             "context": state["context"],
             "num_questions": state["num_questions"]})
 
