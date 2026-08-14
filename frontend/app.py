@@ -97,25 +97,33 @@ elif st.session_state.page == "chat":
 
     st.sidebar.info("📌 Upload a book to build your vector database for asking questions.")
 
+
     if uploaded_file is not None:
         if st.sidebar.button("Upload & Process", use_container_width=True):
-            with st.spinner("Processing document... (May take a minute for large books)"):
+            with st.spinner("Processing document... (May take a minute)"):
+                
+                files = {"file": (uploaded_file.name, uploaded_file.getvalue())}
+                data = {"user_id": st.session_state.user_id} 
+
                 try:
-                    files = {"file": (uploaded_file.name, uploaded_file.getvalue())}
                     response = requests.post(
                         f"{BACKEND_API_URL}/upload",
                         files=files,
+                        data=data, 
                         timeout=180 
                     )
 
                     if response.status_code == 200:
-                        st.sidebar.success("🎉 Book vectorized and database created successfully!")
+                        response_data = response.json()
+                        st.sidebar.success("✅ Book is processing in the background!")
+                
+                        st.session_state['current_collection'] = response_data.get("collection_name")
                     else:
                         st.sidebar.error(f"Upload failed: {response.text}")
-                except requests.exceptions.Timeout:
-                    st.sidebar.error("⌛ The request timed out. The book might be too large for free tier resources.")
-                except Exception as e:
-                    st.sidebar.error(f"Error connecting to backend: {e}")
+                
+                except requests.exceptions.RequestException as e:
+                    st.sidebar.error(f"Connection Error: {e}")
+
 
     if st.sidebar.button("➕ New Chat", use_container_width=True):
         try:
@@ -139,32 +147,38 @@ elif st.session_state.page == "chat":
     prompt = st.chat_input("Ask a question about your uploaded book...")
 
     if prompt and st.session_state.session_id:
-        # Display user message instantly
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        if 'current_collection' not in st.session_state or st.session_state['current_collection'] is None:
+            st.error("Please upload and process a book before asking questions.")
+        else:
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Fetch assistant response
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            with st.spinner("Analyzing text... 📚"):
-                try:
-                    response = requests.post(
-                        f"{BACKEND_API_URL}/ask",
-                        json={
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                with st.spinner("Analyzing text... 📚"):
+                    try:
+                        json_payload = {
                             "query": prompt,
                             "user_id": st.session_state.user_id,
-                            "session_id": st.session_state.session_id
-                        },
-                        timeout=60 
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        answer = data.get("response", "No response from server")
-                    else:
-                        answer = "⚠️ The backend encountered an error answering this query."
-                except Exception as e:
-                    answer = f"⚠️ Connection Error: Failed to reach the backend. ({e})"
-            
-            message_placeholder.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+                            "session_id": st.session_state.session_id,
+                            "collection_name": st.session_state.get('current_collection')
+                        }
+                        
+                        response = requests.post(
+                            f"{BACKEND_API_URL}/ask",
+                            json=json_payload,
+                            timeout=60 
+                        )
+
+                        if response.status_code == 200:
+                            data = response.json()
+                            answer = data.get("response", "No response from server")
+                        else:
+                            answer = f"⚠️ Backend Error: {response.status_code} - {response.text}"
+                    
+                    except Exception as e:
+                        answer = f"⚠️ Connection Error: Failed to reach the backend. ({e})"
+                
+                message_placeholder.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
