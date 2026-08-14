@@ -1,6 +1,10 @@
 import hashlib
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Form
 from pydantic import BaseModel
+import os
+import shutil
+import tempfile
+import hashlib
 from book_rag.vector_store import BuildVectorStore
 from database.query import save_message, get_messages, get_user_by_email, create_user, create_session, add_user_book
 from graph.workflow import build_graph
@@ -36,55 +40,72 @@ class CreateSessionRequest(BaseModel):
 
 # --- Background Task Definition ---
 
-def build_vectorstore_task(user_id: str, file_bytes: bytes, file_name: str):
+def build_vectorstore_task(user_id: str, temp_file_path: str, original_filename: str):
     """
-    This function runs in the background to perform the heavy processing.
-    It uses the BuildVectorStore class to load, chunk, embed, and save to PGVector.
+    This background task now works with a file path instead of raw bytes.
     """
     try:
-        print(f"Background task started for file: {file_name}")
-        builder = BuildVectorStore(file_bytes=file_bytes, file_name=file_name)
-        collection_name = builder.build()
+        print(f"Background task started for file: {original_filename} from user: {user_id}")
+        # Open and read the file from the temporary path
+        with open(temp_file_path, "rb") as f:
+            file_bytes = f.read()
 
-        add_user_book(user_id=user_id, book_title=file_name, collection_name=collection_name)
-        print(f"Background task finished. Collection '{collection_name}' is ready.")
+        builder = BuildVectorStore(file_bytes=file_bytes, file_name=original_filename)
+        collection_name = builder.build()
+        
+        # Link the book to the user in the database
+        add_user_book(user_id=user_id, book_title=original_filename, collection_name=collection_name)
+        
+        print(f"Background task finished. Collection '{collection_name}' is ready and linked.")
+    
     except Exception as e:
-        print(f"Error in background task for {file_name}: {e}")
+        print(f"Error in background task for {original_filename}: {e}")
+    
+    finally:
+        # CRUCIAL: Clean up the temporary file after processing
+        os.remove(temp_file_path)
+        print(f"Temporary file {temp_file_path} deleted.")
 
 # --- API Endpoints ---
-
-@app.get("/home")
-def home():
-    return {"message": "Welcome to the SynapTome"}
 
 @app.post("/upload")
 async def upload_book(
     background_tasks: BackgroundTasks,
-    user_id: str = Form(...), 
+    user_id: str = Form(...),
     file: UploadFile = File(...)
 ):
     """
-    Handles file uploads:
-    1. Reads the file into memory.
-    2. Immediately calculates and returns the file's unique hash (collection_name).
-    3. Triggers a background task to do the heavy processing.
+    Handles large file uploads by streaming them to a temporary file on disk
+    to avoid memory overflow.
     """
-    print(f"Upload received for file: {file.filename}")
-    file_bytes = await file.read()
-    
-    # Immediately calculate the hash to return to the user
-    hasher = hashlib.md5()
-    hasher.update(file_bytes)
-    collection_name = hasher.hexdigest()
-    
-    # Queue the heavy processing to run in the background
-    background_tasks.add_task(build_vectorstore_task, user_id, file_bytes, file.filename)
+    try:
+        # Create a temporary file to save the upload
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp:
+            # Stream the file content in chunks to the temporary file
+            shutil.copyfileobj(file.file, tmp)
+            temp_file_path = tmp.name
 
-    # Return the unique ID right away so the frontend can use it
-    return {
-        "message": "File upload successful. Processing has started in the background.",
-        "collection_name": collection_name
-    }
+        # Now, read the small file back to get its hash for the immediate response
+        with open(temp_file_path, "rb") as f:
+            file_bytes_for_hash = f.read()
+        
+        hasher = hashlib.md5()
+        hasher.update(file_bytes_for_hash)
+        collection_name = hasher.hexdigest()
+
+        # Pass the FILE PATH to the background task, not the file content
+        background_tasks.add_task(build_vectorstore_task, user_id, temp_file_path, file.filename)
+
+        return {
+            "message": "File upload successful. Processing has started.",
+            "collection_name": collection_name
+        }
+    finally:
+        await file.close()
+
+@app.get("/")
+def home():
+    return {"message": "Welcome to the SynapTome"}
 
 @app.post("/ask")
 def ask_question(request: QueryRequest):
