@@ -8,7 +8,7 @@ import logging
 from .loader import Document_Loader  
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_postgres import PGVector
-from langchain_huggingface import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
