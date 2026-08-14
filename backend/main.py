@@ -1,19 +1,16 @@
-from fastapi import FastAPI,UploadFile,File
-from fastapi import BackgroundTasks
+import hashlib
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Form
 from pydantic import BaseModel
-from graph.workflow import build_graph
 from book_rag.vector_store import BuildVectorStore
-from database.query import save_message,get_messages,get_user_by_email,create_user,create_session
-import os
+from database.query import save_message, get_messages, get_user_by_email, create_user, create_session, add_user_book
+from graph.workflow import build_graph
 
-app=FastAPI()
-
+app = FastAPI()
 graph = None
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.on_event("startup")
 def startup():
+    """Initializes the LangGraph graph when the application starts."""
     global graph
     graph = build_graph()
     print("✅ LangGraph initialized successfully")
@@ -22,6 +19,7 @@ class QueryRequest(BaseModel):
     query: str
     user_id: str
     session_id: str
+    collection_name: str  
 
 class LoginRequest(BaseModel):
     email: str
@@ -36,105 +34,112 @@ class CreateSessionRequest(BaseModel):
     user_id: str
     title: str = "New Chat"
 
-def build_vectorstore_task(file_path: str):
-    BuildVectorStore(zip_path=file_path).build()
+# --- Background Task Definition ---
 
+def build_vectorstore_task(user_id: str, file_bytes: bytes, file_name: str):
+    """
+    This function runs in the background to perform the heavy processing.
+    It uses the BuildVectorStore class to load, chunk, embed, and save to PGVector.
+    """
+    try:
+        print(f"Background task started for file: {file_name}")
+        builder = BuildVectorStore(file_bytes=file_bytes, file_name=file_name)
+        collection_name = builder.build()
+
+        add_user_book(user_id=user_id, book_title=file_name, collection_name=collection_name)
+        print(f"Background task finished. Collection '{collection_name}' is ready.")
+    except Exception as e:
+        print(f"Error in background task for {file_name}: {e}")
+
+# --- API Endpoints ---
 
 @app.get("/home")
 def home():
     return {"message": "Welcome to the SynapTome"}
 
 @app.post("/upload")
-async def Upload_book(
+async def upload_book(
     background_tasks: BackgroundTasks,
+    user_id: str = Form(...), 
     file: UploadFile = File(...)
 ):
+    """
+    Handles file uploads:
+    1. Reads the file into memory.
+    2. Immediately calculates and returns the file's unique hash (collection_name).
+    3. Triggers a background task to do the heavy processing.
+    """
+    print(f"Upload received for file: {file.filename}")
+    file_bytes = await file.read()
     
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    # Immediately calculate the hash to return to the user
+    hasher = hashlib.md5()
+    hasher.update(file_bytes)
+    collection_name = hasher.hexdigest()
+    
+    # Queue the heavy processing to run in the background
+    background_tasks.add_task(build_vectorstore_task, user_id, file_bytes, file.filename)
 
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    background_tasks.add_task(build_vectorstore_task, file_path)
-
-    return {"message": "vector store is being created"}
+    # Return the unique ID right away so the frontend can use it
+    return {
+        "message": "File upload successful. Processing has started in the background.",
+        "collection_name": collection_name
+    }
 
 @app.post("/ask")
 def ask_question(request: QueryRequest):
+    """Answers a question by invoking the graph for a specific book collection."""
     global graph
-
+    
+    print(f"Invoking graph for collection: {request.collection_name}")
     result = graph.invoke({
-        "user_query": request.query
+        "user_query": request.query,
+        "collection_name": request.collection_name
     })
+    
+    response_message = result.get("response_message", "Sorry, I encountered an error.")
 
-    # Save user message
-    save_message(
-        request.session_id,
-        request.user_id,
-        "user",
-        request.query
-    )
+    # Save conversation to the database
+    save_message(request.session_id, request.user_id, "user", request.query)
+    save_message(request.session_id, request.user_id, "assistant", response_message)
 
-    # Save assistant response
-    save_message(
-        request.session_id,
-        request.user_id,
-        "assistant",
-        result.get("response_message")
-    )
-
-    return {
-        "query": request.query,
-        "response": result.get("response_message")
-    }
-
-
-@app.get("/history")
-def history(session_id: str):
-    return get_messages(session_id)
+    return {"query": request.query, "response": response_message}
 
 @app.post("/register")
-def register(request:RegisterRequest):
-    email = request.email
-    username = request.username
-    password = request.password
-
-    user = create_user(username, email, password)
-
+def register(request: RegisterRequest):
+    user_tuple = create_user(request.username, request.email, request.password)
     return {
-        "message": "user created",
-        "user": user
+        "message": "User created successfully",
+        "user_id": user_tuple[0],
+        "username": user_tuple[1]
     }
 
 @app.post("/login")
-def login(request:LoginRequest):
-    email = request.email
-    password = request.password
+def login(request: LoginRequest):
+    user_tuple = get_user_by_email(request.email)
 
-    user = get_user_by_email(email)
+    if not user_tuple:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    if not user:
-        return {"error": "User not found"}
-
-    if user[3] != password:
-        return {"error": "Invalid password"}
+    if user_tuple[3] != request.password:
+        raise HTTPException(status_code=401, detail="Invalid password")
 
     return {
-        "message": "login successful",
-        "user_id": user[0],
-        "username": user[1]
+        "message": "Login successful",
+        "user_id": user_tuple[0],    
+        "username": user_tuple[1]  
     }
 
 @app.post("/create-session")
-def create_chat_session(request:CreateSessionRequest):
-    user_id = request.user_id
-    title = request.title
-
-    session = create_session(user_id, title)
-
+def create_chat_session(request: CreateSessionRequest):
+    session_tuple = create_session(request.user_id, request.title)
     return {
-        "message": "session created",
-        "session_id": session[0],
-        "title": session[1]
+        "message": "Session created",
+        "session_id": session_tuple[0], 
+        "title": session_tuple[1]   
     }
+
+@app.get("/history")
+def history(session_id: str):
+    messages = get_messages(session_id)
+    return {"messages": messages}

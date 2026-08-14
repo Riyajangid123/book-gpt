@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage
 class BookState(TypedDict):
     user_query: str
     standard_query: str
+    collection_name: str
 
     task_type: Literal["notes", "mcq", "short", "all"]
 

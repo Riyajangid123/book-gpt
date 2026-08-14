@@ -1,25 +1,27 @@
 from book_rag.vector_store_loader import VectorStoreLoader
-from graph.state import BookState
-
 
 class Retriever:
-    def __init__(self):
-        self.vector_store = VectorStoreLoader(collection_name="your_collection_name")
-        self.db = self.vector_store.load()
+    def retriever(self, state):
+        """
+        Extracts the collection_name from the current state, 
+        loads that specific vector store, and searches it.
+        """
+        query = state.get("standard_query") 
+    
+        
+        collection_name = state.get("collection_name")
+        
+        print(f"🔍 Retrieving documents for collection: {collection_name}")
+        
+        if not collection_name:
+            raise ValueError("No collection_name provided in the state!")
 
-    def retriever(self, state: BookState):
-
-        retriever = self.db.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 5}
-        )
-
-        documents = retriever.invoke(state["standard_query"])
-
-        print("\nQUERY:", state["standard_query"])
-
-        for i, doc in enumerate(documents):
-            print(f"\nDOC {i+1}:")
-            print(doc.page_content[:300])
-
-        return {"retrieved_docs": documents}
+        loader = VectorStoreLoader(collection_name=collection_name)
+        vector_store = loader.load()
+        
+        # 3. Perform the search
+        results = vector_store.similarity_search(query, k=5)
+        
+        print(f"✅ Found {len(results)} relevant document chunks.")
+        
+        return {"retrieved_docs": results}

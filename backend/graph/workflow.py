@@ -3,15 +3,12 @@ from langgraph.graph import StateGraph,START,END
 from book_rag.retriever import Retriever
 from book_rag.rewrite_query import Rewrite
 from book_rag.generate_node import Generate
-from book_rag.vector_store import VectorStore
-from book_rag.loader import Document_Loader
 from book_rag.notes_node import NotesNode
 from book_rag.mcq_node import MCQNode
 from book_rag.short_node import ShortAnswerNode
 from book_rag.context import context_node
 import re
 
-import re
 
 def router_node(state: BookState):
     query = state["user_query"].lower()

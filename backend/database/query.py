@@ -99,3 +99,24 @@ def get_messages(session_id):
     conn.close()
 
     return messages
+
+def add_user_book(user_id, book_title, collection_name):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("SELECT id FROM user_books WHERE collection_name = %s", (collection_name,))
+    if cur.fetchone():
+        print(f"Book with collection name {collection_name} already exists.")
+        cur.close()
+        conn.close()
+        return
+
+    cur.execute("""
+        INSERT INTO user_books (user_id, book_title, collection_name)
+        VALUES (%s, %s, %s);
+    """, (user_id, book_title, collection_name))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"Successfully linked book '{book_title}' to user.")
