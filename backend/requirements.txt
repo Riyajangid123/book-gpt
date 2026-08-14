@@ -19,4 +19,9 @@ pymupdf
 
 # Environment Variables
 python-dotenv
+
 sqlalchemy
+
+# File Upload Parsing
+python-multipart         
+
